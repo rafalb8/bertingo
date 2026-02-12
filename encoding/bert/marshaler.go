@@ -19,11 +19,10 @@ func Marshal(v any) (Term, error) {
 func marshal(v reflect.Value) (Term, error) {
 	switch k := v.Kind(); k {
 	case reflect.Pointer, reflect.Interface:
-		val := v.Elem()
-		if val.IsNil() {
+		if v.IsNil() {
 			return Tuple{Atom("bert"), Atom("nil")}, nil
 		}
-		return marshal(val)
+		return marshal(v.Elem())
 
 	case reflect.Bool:
 		return Atom(strconv.FormatBool(v.Bool())), nil

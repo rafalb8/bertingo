@@ -24,7 +24,7 @@ func marshal(v reflect.Value) (Term, error) {
 	case reflect.Pointer, reflect.Interface:
 		val := v.Elem()
 		if val.IsNil() {
-			return Tuple{Atom("bert"), Nil{}}, nil
+			return Tuple{Atom("bert"), Atom("nil")}, nil
 		}
 		return marshal(val)
 

@@ -10,9 +10,6 @@ import (
 	"strings"
 )
 
-// TODO: Move errors out of append
-// TODO: When using BERT1, use dicts instead of maps
-
 var ErrNotImplemented = errors.New("bert: not implemented")
 
 func Marshal(v any) (Term, error) {

@@ -2,21 +2,20 @@ package bert
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
 )
 
 type Term interface {
-	Append(dst []byte) ([]byte, error)
+	Append(dst []byte) []byte
 	String() string
 }
 
 type SmallInteger uint8
 
-func (i SmallInteger) Append(dst []byte) ([]byte, error) {
-	return append(dst, byte(SmallIntegerExt), byte(i)), nil
+func (i SmallInteger) Append(dst []byte) []byte {
+	return append(dst, byte(SmallIntegerExt), byte(i))
 }
 
 func (i SmallInteger) String() string {
@@ -25,9 +24,9 @@ func (i SmallInteger) String() string {
 
 type Integer int32
 
-func (i Integer) Append(dst []byte) ([]byte, error) {
+func (i Integer) Append(dst []byte) []byte {
 	dst = append(dst, byte(IntegerExt))
-	return binary.BigEndian.AppendUint32(dst, uint32(i)), nil
+	return binary.BigEndian.AppendUint32(dst, uint32(i))
 }
 
 func (i Integer) String() string {
@@ -37,9 +36,9 @@ func (i Integer) String() string {
 // Finite float stored as %.20e formatted string
 type Float float64
 
-func (f Float) Append(dst []byte) ([]byte, error) {
+func (f Float) Append(dst []byte) []byte {
 	dst = append(dst, byte(FloatExt))
-	return fmt.Appendf(dst, "%.20e", float64(f)), nil
+	return fmt.Appendf(dst, "%.20e", float64(f))
 }
 
 func (f Float) String() string {
@@ -48,8 +47,7 @@ func (f Float) String() string {
 
 type Tuple []Term
 
-func (t Tuple) Append(dst []byte) ([]byte, error) {
-	var err error
+func (t Tuple) Append(dst []byte) []byte {
 	switch {
 	case len(t) <= math.MaxUint8:
 		dst = append(dst, byte(SmallTupleExt), byte(len(t)))
@@ -57,16 +55,14 @@ func (t Tuple) Append(dst []byte) ([]byte, error) {
 		dst = append(dst, byte(LargeTupleExt))
 		dst = binary.BigEndian.AppendUint32(dst, uint32(len(t)))
 	default:
-		return dst, errors.New("bert: tuple too large")
+		// errors.New("bert: tuple too large")
+		return dst
 	}
 
 	for _, a := range t {
-		dst, err = a.Append(dst)
-		if err != nil {
-			return dst, err
-		}
+		dst = a.Append(dst)
 	}
-	return dst, nil
+	return dst
 }
 
 func (t Tuple) String() string {
@@ -75,24 +71,23 @@ func (t Tuple) String() string {
 
 type Map []Term
 
-func (m Map) Append(dst []byte) ([]byte, error) {
+func (m Map) Append(dst []byte) []byte {
 	if len(m)/2 > math.MaxUint32 {
-		return dst, errors.New("bert: map too large")
+		// errors.New("bert: map too large")
+		return dst
 	}
 	if len(m)%2 != 0 {
-		return dst, errors.New("bert: map must have even number of elements")
+		// errors.New("bert: map must have even number of elements")
+		return dst
 	}
 
 	dst = append(dst, byte(MapExt))
 	dst = binary.BigEndian.AppendUint32(dst, uint32(len(m)/2))
 
 	for _, a := range m {
-		dst, err := a.Append(dst)
-		if err != nil {
-			return dst, err
-		}
+		dst = a.Append(dst)
 	}
-	return dst, nil
+	return dst
 }
 
 func (m Map) String() string {
@@ -101,8 +96,8 @@ func (m Map) String() string {
 
 type Nil struct{}
 
-func (Nil) Append(dst []byte) ([]byte, error) {
-	return append(dst, byte(NilExt)), nil
+func (Nil) Append(dst []byte) []byte {
+	return append(dst, byte(NilExt))
 }
 
 func (Nil) String() string {
@@ -111,18 +106,19 @@ func (Nil) String() string {
 
 type String string
 
-func (s String) Append(dst []byte) ([]byte, error) {
+func (s String) Append(dst []byte) []byte {
 	if len(s) == 0 {
 		return Nil{}.Append(dst)
 	}
 
 	if len(s) > math.MaxUint16 {
-		return dst, errors.New("bert: string too long")
+		// errors.New("bert: string too long")
+		return dst
 	}
 
 	dst = append(dst, byte(StringExt))
 	dst = binary.BigEndian.AppendUint16(dst, uint16(len(s)))
-	return append(dst, s...), nil
+	return append(dst, s...)
 }
 
 func (s String) String() string {
@@ -131,26 +127,24 @@ func (s String) String() string {
 
 type List []Term
 
-func (l List) Append(dst []byte) ([]byte, error) {
+func (l List) Append(dst []byte) []byte {
 	if len(l) == 0 {
 		return Nil{}.Append(dst)
 	}
 
 	len := len(l) - 1
 	if len > math.MaxUint32 {
-		return dst, errors.New("bert: list too large")
+		// errors.New("bert: list too large")
+		return dst
 	}
 
 	dst = append(dst, byte(ListExt))
 	dst = binary.BigEndian.AppendUint32(dst, uint32(len))
 
 	for _, a := range l {
-		dst, err := a.Append(dst)
-		if err != nil {
-			return dst, err
-		}
+		dst = a.Append(dst)
 	}
-	return dst, nil
+	return dst
 }
 
 func (l List) String() string {
@@ -159,14 +153,15 @@ func (l List) String() string {
 
 type Binary []byte
 
-func (b Binary) Append(dst []byte) ([]byte, error) {
+func (b Binary) Append(dst []byte) []byte {
 	if len(b) > math.MaxUint16 {
-		return dst, errors.New("bert: binary too long")
+		// errors.New("bert: binary too long")
+		return dst
 	}
 
 	dst = append(dst, byte(BinaryExt))
 	dst = binary.BigEndian.AppendUint32(dst, uint32(len(b)))
-	return append(dst, b...), nil
+	return append(dst, b...)
 }
 
 func (b Binary) String() string {
@@ -176,9 +171,9 @@ func (b Binary) String() string {
 // Finite float stored as 8 bytes big-endian IEEE format
 type NewFloat float64
 
-func (f NewFloat) Append(dst []byte) ([]byte, error) {
+func (f NewFloat) Append(dst []byte) []byte {
 	dst = append(dst, byte(NewFloatExt))
-	return binary.BigEndian.AppendUint64(dst, math.Float64bits(float64(f))), nil
+	return binary.BigEndian.AppendUint64(dst, math.Float64bits(float64(f)))
 }
 
 func (f NewFloat) String() string {
@@ -187,14 +182,15 @@ func (f NewFloat) String() string {
 
 type Atom string
 
-func (a Atom) Append(dst []byte) ([]byte, error) {
+func (a Atom) Append(dst []byte) []byte {
 	if len(a) > 255 {
-		return dst, errors.New("bert: atom too long")
+		// errors.New("bert: atom too long")
+		return dst
 	}
 
 	dst = append(dst, byte(AtomExt))
 	dst = binary.BigEndian.AppendUint16(dst, uint16(len(a)))
-	return append(dst, a...), nil
+	return append(dst, a...)
 }
 
 func (a Atom) String() string {

@@ -22,20 +22,16 @@ func (e *Encoder) Encode(b Term) error {
 	// encode chunk
 	chunk := &bytes.Buffer{}
 	chunk.WriteByte(byte(Version))
-	data, err := b.Append(chunk.AvailableBuffer())
-	if err != nil {
-		return err
-	}
-	chunk.Write(data)
+	chunk.Write(b.Append(chunk.AvailableBuffer()))
 
 	if e.BERT2 {
-		_, err = e.buf.Write(binary.AppendUvarint(e.buf.AvailableBuffer(), uint64(chunk.Len())))
+		_, err := e.buf.Write(binary.AppendUvarint(e.buf.AvailableBuffer(), uint64(chunk.Len())))
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err = io.Copy(e.buf, chunk)
+	_, err := io.Copy(e.buf, chunk)
 	if err != nil {
 		return err
 	}

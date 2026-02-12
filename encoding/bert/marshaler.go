@@ -84,8 +84,8 @@ func marshal(v reflect.Value) (Term, error) {
 		}
 
 		l := List{}
+		optimize := true
 		sb := strings.Builder{}
-		onlyBytes := true
 		for i := range v.Len() {
 			x, err := marshal(v.Index(i))
 			if err != nil {
@@ -93,14 +93,14 @@ func marshal(v reflect.Value) (Term, error) {
 			}
 			l = append(l, x)
 
-			if x, isByte := x.(SmallInteger); isByte && onlyBytes {
+			if x, isByte := x.(SmallInteger); isByte && optimize {
 				sb.WriteByte(byte(x))
 			} else {
-				onlyBytes = false
+				optimize = false
 			}
 		}
 
-		if onlyBytes {
+		if optimize {
 			return String(sb.String()), nil
 		}
 

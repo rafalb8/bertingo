@@ -2,7 +2,6 @@ package bert
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -19,19 +18,18 @@ func NewEncoder(w io.Writer) *Encoder {
 }
 
 func (e *Encoder) Encode(b Term) error {
-	// encode chunk
-	chunk := &bytes.Buffer{}
-	chunk.WriteByte(byte(Version))
-	chunk.Write(b.Append(chunk.AvailableBuffer()))
+	chunk := make([]byte, 1, 4<<10)
+	chunk[0] = byte(Version)
+	chunk = b.Append(chunk)
 
 	if e.BERT2 {
-		_, err := e.buf.Write(binary.AppendUvarint(e.buf.AvailableBuffer(), uint64(chunk.Len())))
+		_, err := e.buf.Write(binary.AppendUvarint(e.buf.AvailableBuffer(), uint64(len(chunk))))
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err := io.Copy(e.buf, chunk)
+	_, err := e.buf.Write(chunk)
 	if err != nil {
 		return err
 	}

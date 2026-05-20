@@ -82,20 +82,21 @@ func marshal(v reflect.Value) (Term, error) {
 
 			// fallback for arrays passed by value
 			res := make([]byte, v.Len())
-			for i := range v.Len() {
+			for i := range res {
 				res[i] = byte(v.Index(i).Uint())
 			}
 			return Binary(res), nil
 		}
 
-		if v.Len() == 0 {
+		length := v.Len()
+		if length == 0 {
 			return Nil{}, nil
 		}
 
 		optimize := true
-		l := make(List, 0, v.Len()+1) // v.len + nil
+		l := make(List, 0, length+1) // v.len + nil
 
-		for i := range v.Len() {
+		for i := range length {
 			x, err := marshal(v.Index(i))
 			if err != nil {
 				return nil, err
@@ -145,8 +146,8 @@ func parseTag(field reflect.StructField) (name string, flag flags) {
 		return cmp.Or(tag, field.Name), flag
 	}
 
-	for opt := range strings.SplitSeq(strings.TrimSpace(options), ",") {
-		switch opt {
+	for opt := range strings.SplitSeq(options, ",") {
+		switch strings.TrimSpace(opt) {
 		case "omitempty":
 			flag.omitempty = true
 		case "binary":
@@ -161,19 +162,28 @@ func parseTag(field reflect.StructField) (name string, flag flags) {
 }
 
 func marshalStruct(v reflect.Value, list bool) (Term, error) {
-	out := []Term{}
+	termNum := v.NumField()
+	if list {
+		termNum += 1 // NumField + nil
+	} else {
+		termNum *= 2 // NumField * (Name + Value)
+	}
 
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Type().Field(i)
+	out := make([]Term, 0, termNum)
+
+	for f, v := range v.Fields() {
 		name, flag := parseTag(f)
-		v := v.Field(i)
+
+		if name == "-" {
+			continue
+		}
 
 		if flag.omitempty && v.IsZero() {
 			continue
 		}
 
-		tuple := Tuple{}
-		if name != "-" {
+		tuple := make(Tuple, 0, 2)
+		if name != "" {
 			tuple = append(tuple, Atom(name))
 		}
 
@@ -188,9 +198,15 @@ func marshalStruct(v reflect.Value, list bool) (Term, error) {
 			val, err = marshalStruct(v, true)
 
 		case flag.atom:
+			if v.Kind() != reflect.String {
+				return nil, fmt.Errorf("bert: atom tag can only be used with string: %s", f.Name)
+			}
 			val = Atom(v.String())
 
 		case flag.binary:
+			if v.Kind() != reflect.String {
+				return nil, fmt.Errorf("bert: binary tag can only be used with string: %s", f.Name)
+			}
 			val = Binary(v.String())
 
 		default:

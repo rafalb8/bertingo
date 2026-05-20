@@ -9,7 +9,7 @@ It allows your Go applications to speak directly to Erlang and Elixir nodes.
 
 ## Installation
 ```bash
-go get github.com/rafalb8/bertingo/encoding/bert
+go get -u github.com/rafalb8/bertingo
 ```
 
 ## Quick Start
@@ -22,7 +22,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/rafalb8/bertingo/encoding/bert"
+	bert "github.com/rafalb8/bertingo"
 )
 
 func main() {
@@ -48,7 +48,7 @@ package main
 
 import (
 	"os"
-	"github.com/rafalb8/bertingo/encoding/bert"
+	bert "github.com/rafalb8/bertingo"
 )
 
 type User struct {

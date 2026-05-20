@@ -1,5 +1,5 @@
 /*
-Package bert provides high-performance encoding and decoding for the Binary Erlang Term format.
+Package bert provides encoding and decoding for the Binary Erlang Term format.
 
 # Type Mapping
 

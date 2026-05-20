@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/rafalb8/bertingo/encoding/bert"
+	bert "github.com/rafalb8/bertingo"
 )
 
 func main() {

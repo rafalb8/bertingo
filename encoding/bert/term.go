@@ -55,7 +55,6 @@ func (t Tuple) Append(dst []byte) []byte {
 		dst = append(dst, byte(LargeTupleExt))
 		dst = binary.BigEndian.AppendUint32(dst, uint32(len(t)))
 	default:
-		// errors.New("bert: tuple too large")
 		return dst
 	}
 
@@ -73,11 +72,9 @@ type Map []Term
 
 func (m Map) Append(dst []byte) []byte {
 	if len(m)/2 > math.MaxUint32 {
-		// errors.New("bert: map too large")
 		return dst
 	}
 	if len(m)%2 != 0 {
-		// errors.New("bert: map must have even number of elements")
 		return dst
 	}
 
@@ -112,7 +109,6 @@ func (s String) Append(dst []byte) []byte {
 	}
 
 	if len(s) > math.MaxUint16 {
-		// errors.New("bert: string too long")
 		return dst
 	}
 
@@ -134,7 +130,6 @@ func (l List) Append(dst []byte) []byte {
 
 	len := len(l) - 1
 	if len > math.MaxUint32 {
-		// errors.New("bert: list too large")
 		return dst
 	}
 
@@ -154,8 +149,7 @@ func (l List) String() string {
 type Binary []byte
 
 func (b Binary) Append(dst []byte) []byte {
-	if len(b) > math.MaxUint16 {
-		// errors.New("bert: binary too long")
+	if len(b) > math.MaxUint32 {
 		return dst
 	}
 
@@ -183,8 +177,7 @@ func (f NewFloat) String() string {
 type Atom string
 
 func (a Atom) Append(dst []byte) []byte {
-	if len(a) > 255 {
-		// errors.New("bert: atom too long")
+	if len(a) > math.MaxUint16 {
 		return dst
 	}
 

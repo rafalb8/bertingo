@@ -1,39 +1,52 @@
 package bert
 
 import (
-	"bufio"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 )
 
+var bufferPool = sync.Pool{
+	New: func() any {
+		b := make([]byte, 0, 4<<10)
+		return &b
+	},
+}
+
 type Encoder struct {
-	buf   *bufio.Writer
+	w io.Writer
+
 	BERT2 bool
 }
 
 func NewEncoder(w io.Writer) *Encoder {
-	return &Encoder{buf: bufio.NewWriter(w)}
+	return &Encoder{w: w}
 }
 
-func (e *Encoder) Encode(b Term) error {
-	chunk := make([]byte, 1, 4<<10)
-	chunk[0] = byte(Version)
-	chunk = b.Append(chunk)
+func (e *Encoder) Encode(term Term) error {
+	p := bufferPool.Get().(*[]byte)
+	buf := (*p)[:0]
+
+	buf = append(buf, byte(Version))
+	buf = term.Append(buf)
 
 	if e.BERT2 {
-		_, err := e.buf.Write(binary.AppendUvarint(e.buf.AvailableBuffer(), uint64(len(chunk))))
-		if err != nil {
+		var prefix [binary.MaxVarintLen64]byte
+		n := binary.PutUvarint(prefix[:], uint64(len(buf)))
+		if _, err := e.w.Write(prefix[:n]); err != nil {
+			bufferPool.Put(p)
 			return err
 		}
 	}
 
-	_, err := e.buf.Write(chunk)
-	if err != nil {
-		return err
+	_, err := e.w.Write(buf)
+	if cap(buf) <= 64<<10 {
+		*p = buf
+		bufferPool.Put(p)
 	}
-	return e.buf.Flush()
+	return err
 }
 
 func Tree(b Term, prefix ...byte) string {

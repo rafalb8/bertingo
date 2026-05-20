@@ -58,7 +58,7 @@ func TestAppend(t *testing.T) {
 		},
 
 		"List": {
-			Term:     List{Atom("a"), SmallInteger(16), Nil{}},
+			Term:     List{Atom("a"), SmallInteger(16)},
 			Expected: []byte{byte(ListExt), 0, 0, 0, 2, byte(AtomExt), 0, 1, 'a', byte(SmallIntegerExt), 16, byte(NilExt)},
 		},
 

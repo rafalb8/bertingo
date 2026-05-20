@@ -75,7 +75,16 @@ func marshal(v reflect.Value) (Term, error) {
 	case reflect.Array, reflect.Slice:
 		// []uint8/byte encode as binary
 		if v.Type().Elem().Kind() == reflect.Uint8 {
-			return Binary(v.Bytes()), nil
+			if v.Kind() == reflect.Slice || v.CanAddr() {
+				return Binary(v.Bytes()), nil
+			}
+
+			// fallback for arrays passed by value
+			res := make([]byte, v.Len())
+			for i := range v.Len() {
+				res[i] = byte(v.Index(i).Uint())
+			}
+			return Binary(res), nil
 		}
 
 		if v.Len() == 0 {

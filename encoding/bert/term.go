@@ -7,11 +7,15 @@ import (
 	"strconv"
 )
 
+// Term represents any valid Binary Erlang Term data type.
 type Term interface {
+	// Append serializes the term data and adds it to the destination byte slice.
 	Append(dst []byte) []byte
+	// String returns a clean text layout version of the inner value.
 	String() string
 }
 
+// SmallInteger represents an unsigned 8-bit integer (range 0 to 255).
 type SmallInteger uint8
 
 func (i SmallInteger) Append(dst []byte) []byte {
@@ -22,6 +26,7 @@ func (i SmallInteger) String() string {
 	return strconv.FormatUint(uint64(i), 10)
 }
 
+// Integer represents a signed 32-bit integer.
 type Integer int32
 
 func (i Integer) Append(dst []byte) []byte {
@@ -33,7 +38,7 @@ func (i Integer) String() string {
 	return strconv.FormatInt(int64(i), 10)
 }
 
-// Finite float stored as %.20e formatted string
+// Float represents an old-style legacy float stored as a 31-byte text string.
 type Float float64
 
 func (f Float) Append(dst []byte) []byte {
@@ -45,6 +50,7 @@ func (f Float) String() string {
 	return strconv.FormatFloat(float64(f), 'g', 10, 64)
 }
 
+// Tuple represents a collection of terms with a fixed layout size.
 type Tuple []Term
 
 func (t Tuple) Append(dst []byte) []byte {
@@ -68,13 +74,15 @@ func (t Tuple) String() string {
 	return fmt.Sprint([]Term(t))
 }
 
+// Map represents Erlang key-value pair maps.
+// Elements are stored sequentially in a flat list: [Key1, Val1, Key2, Val2].
 type Map []Term
 
 func (m Map) Append(dst []byte) []byte {
 	if len(m)/2 > math.MaxUint32 {
 		return dst
 	}
-	if len(m)%2 != 0 {
+	if len(m)%2 != 0 { // map requires matching pairs
 		return dst
 	}
 
@@ -91,6 +99,7 @@ func (m Map) String() string {
 	return fmt.Sprint([]Term(m))
 }
 
+// Nil represents an empty Erlang list container structure.
 type Nil struct{}
 
 func (Nil) Append(dst []byte) []byte {
@@ -98,9 +107,10 @@ func (Nil) Append(dst []byte) []byte {
 }
 
 func (Nil) String() string {
-	return ""
+	return "[]"
 }
 
+// String represents a flat list of small characters or bytes up to 65,535 bytes.
 type String string
 
 func (s String) Append(dst []byte) []byte {
@@ -121,6 +131,7 @@ func (s String) String() string {
 	return strconv.QuoteToGraphic(string(s))
 }
 
+// List represents an Erlang list container structure.
 type List []Term
 
 func (l List) Append(dst []byte) []byte {
@@ -128,24 +139,27 @@ func (l List) Append(dst []byte) []byte {
 		return Nil{}.Append(dst)
 	}
 
-	len := len(l) - 1
-	if len > math.MaxUint32 {
+	length := len(l)
+	if length > math.MaxUint32 {
 		return dst
 	}
 
 	dst = append(dst, byte(ListExt))
-	dst = binary.BigEndian.AppendUint32(dst, uint32(len))
+	dst = binary.BigEndian.AppendUint32(dst, uint32(length))
 
 	for _, a := range l {
 		dst = a.Append(dst)
 	}
-	return dst
+
+	// standard list must be closed with a trailing empty list marker
+	return Nil{}.Append(dst)
 }
 
 func (l List) String() string {
 	return fmt.Sprint([]Term(l))
 }
 
+// Binary represents a raw, unformatted sequence chunk of bytes.
 type Binary []byte
 
 func (b Binary) Append(dst []byte) []byte {
@@ -162,7 +176,7 @@ func (b Binary) String() string {
 	return strconv.QuoteToASCII(string(b))
 }
 
-// Finite float stored as 8 bytes big-endian IEEE format
+// NewFloat represents a modern 8-byte double precision floating point number (IEEE 754).
 type NewFloat float64
 
 func (f NewFloat) Append(dst []byte) []byte {
@@ -174,6 +188,7 @@ func (f NewFloat) String() string {
 	return strconv.FormatFloat(float64(f), 'g', 10, 64)
 }
 
+// Atom represents an Erlang named string token symbol.
 type Atom string
 
 func (a Atom) Append(dst []byte) []byte {

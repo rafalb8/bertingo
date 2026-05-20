@@ -11,8 +11,10 @@ import (
 	"unsafe"
 )
 
+// ErrNotImplemented is returned when trying to convert a type that is not yet supported.
 var ErrNotImplemented = errors.New("bert: not implemented")
 
+// ToTerm converts any Go value into an Erlang data Term object.
 func ToTerm(v any) (Term, error) {
 	return toTerm(reflect.ValueOf(v))
 }
@@ -21,6 +23,7 @@ func toTerm(v reflect.Value) (Term, error) {
 	switch k := v.Kind(); k {
 	case reflect.Pointer, reflect.Interface:
 		if v.IsNil() {
+			// map nil items to a generic Erlang standard null representation tuple: {bert, nil}
 			return Tuple{Atom("bert"), Atom("nil")}, nil
 		}
 		return toTerm(v.Elem())
@@ -38,7 +41,7 @@ func toTerm(v reflect.Value) (Term, error) {
 		case i <= math.MaxInt32:
 			return Integer(i), nil
 		default:
-			// TODO: BigInt
+			// TODO: BigInt handling
 			return nil, ErrNotImplemented
 		}
 
@@ -49,7 +52,7 @@ func toTerm(v reflect.Value) (Term, error) {
 		return Integer(v.Uint()), nil
 
 	case reflect.Uint32, reflect.Uint64:
-		// TODO: BigInt
+		// TODO: BigInt handling
 		return nil, ErrNotImplemented
 
 	case reflect.Int:
@@ -59,7 +62,7 @@ func toTerm(v reflect.Value) (Term, error) {
 		case i >= math.MinInt32 && i <= math.MaxInt32:
 			return Integer(i), nil
 		default:
-			// TODO: BigInt
+			// TODO: BigInt handling
 			return nil, ErrNotImplemented
 		}
 
@@ -67,20 +70,20 @@ func toTerm(v reflect.Value) (Term, error) {
 		return Integer(v.Int()), nil
 
 	case reflect.Int64:
-		// TODO: BigInt
+		// TODO: BigInt handling
 		return nil, ErrNotImplemented
 
 	case reflect.Float32, reflect.Float64:
 		return NewFloat(v.Float()), nil
 
 	case reflect.Array, reflect.Slice:
-		// []uint8/byte encode as binary
+		// Check if it is a list of raw bytes or uint8 characters
 		if v.Type().Elem().Kind() == reflect.Uint8 {
 			if v.Kind() == reflect.Slice || v.CanAddr() {
 				return Binary(v.Bytes()), nil
 			}
 
-			// fallback for arrays passed by value
+			// Copy standard arrays passed by value safely into a separate byte buffer slice
 			res := make([]byte, v.Len())
 			for i := range res {
 				res[i] = byte(v.Index(i).Uint())
@@ -94,7 +97,7 @@ func toTerm(v reflect.Value) (Term, error) {
 		}
 
 		optimize := true
-		l := make(List, 0, length+1) // v.len + nil
+		l := make(List, 0, length)
 
 		for i := range length {
 			x, err := toTerm(v.Index(i))
@@ -103,13 +106,13 @@ func toTerm(v reflect.Value) (Term, error) {
 			}
 			l = append(l, x)
 
-			// check if x's are SmallIntgers => can be optimized into string
+			// check if every individual component inside is a SmallInteger
 			if optimize {
 				_, optimize = x.(SmallInteger)
 			}
 		}
 
-		// if only SmallIntegers, flatten it to a String
+		// if the elements are all SmallInteger, flatten them into a single String representation
 		if optimize {
 			buf := make([]byte, len(l))
 			for i, x := range l {
@@ -118,7 +121,7 @@ func toTerm(v reflect.Value) (Term, error) {
 			return String(unsafe.String(unsafe.SliceData(buf), len(buf))), nil
 		}
 
-		return append(l, Nil{}), nil
+		return l, nil
 
 	case reflect.Struct:
 		return structToTerm(v, false)
@@ -128,13 +131,15 @@ func toTerm(v reflect.Value) (Term, error) {
 	}
 }
 
+// flags keeps track of custom configuration tags attached to struct fields.
 type flags struct {
-	omitempty bool
-	binary    bool
-	list      bool
-	atom      bool
+	omitempty bool // Skip if the field has its zero value
+	binary    bool // Force a Go string to encode as a raw Erlang Binary block
+	list      bool // Force a child struct to layout components like an Erlang List array
+	atom      bool // Force a Go string to convert into an Erlang token Atom symbol
 }
 
+// parseTag inspects a struct field's `bert:"..."` tag values.
 func parseTag(field reflect.StructField) (name string, flag flags) {
 	tag, found := field.Tag.Lookup("bert")
 	if !found {
@@ -161,6 +166,7 @@ func parseTag(field reflect.StructField) (name string, flag flags) {
 	return cmp.Or(tag, field.Name), flag
 }
 
+// structToTerm transforms standard Go structures into nested Erlang key-value fields.
 func structToTerm(v reflect.Value, list bool) (Term, error) {
 	termNum := v.NumField()
 	if list {
@@ -174,7 +180,7 @@ func structToTerm(v reflect.Value, list bool) (Term, error) {
 	for f, v := range v.Fields() {
 		name, flag := parseTag(f)
 
-		if name == "-" {
+		if name == "-" { // Skip fields explicitly ignored with a `-` tag
 			continue
 		}
 
@@ -219,7 +225,6 @@ func structToTerm(v reflect.Value, list bool) (Term, error) {
 		tuple = append(tuple, val)
 
 		if list {
-			// in list mode, pair name atom with value in tuple
 			out = append(out, tuple)
 		} else {
 			out = append(out, tuple...)
@@ -227,8 +232,7 @@ func structToTerm(v reflect.Value, list bool) (Term, error) {
 	}
 
 	if list {
-		// return proper list
-		return List(append(out, Nil{})), nil
+		return List(out), nil
 	}
 	return Tuple(out), nil
 }

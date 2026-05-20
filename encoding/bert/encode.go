@@ -15,19 +15,29 @@ var bufferPool = sync.Pool{
 	},
 }
 
+// Encoder serializes Terms directly into a binary Erlang term format.
 type Encoder struct {
 	w io.Writer
 
 	BERT2 bool
 }
 
+// NewEncoder initializes a BERT encoder.
 func NewEncoder(w io.Writer) *Encoder {
 	return &Encoder{w: w}
 }
 
+// Encode marshals an individual Go structural Term node into the destination stream.
 func (e *Encoder) Encode(term Term) error {
 	p := bufferPool.Get().(*[]byte)
 	buf := (*p)[:0]
+
+	defer func() {
+		if cap(buf) <= 64<<10 { // 64KB maximum boundary cap safety check
+			*p = buf
+			bufferPool.Put(p)
+		}
+	}()
 
 	buf = append(buf, byte(Version))
 	buf = term.Append(buf)
@@ -35,20 +45,19 @@ func (e *Encoder) Encode(term Term) error {
 	if e.BERT2 {
 		var prefix [binary.MaxVarintLen64]byte
 		n := binary.PutUvarint(prefix[:], uint64(len(buf)))
-		if _, err := e.w.Write(prefix[:n]); err != nil {
-			bufferPool.Put(p)
-			return err
+		_, err := e.w.Write(prefix[:n])
+		if err != nil {
+			return fmt.Errorf("bert: write BERT2 prefix: %w", err)
 		}
 	}
 
-	_, err := e.w.Write(buf)
-	if cap(buf) <= 64<<10 {
-		*p = buf
-		bufferPool.Put(p)
+	if _, err := e.w.Write(buf); err != nil {
+		return fmt.Errorf("bert: write encoded data: %w", err)
 	}
-	return err
+	return nil
 }
 
+// Tree recursively unrolls Term into a clean, formatted layout string.
 func Tree(b Term, prefix ...byte) string {
 	pfx := string(prefix)
 	sb := strings.Builder{}

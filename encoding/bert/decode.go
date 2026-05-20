@@ -17,12 +17,14 @@ type reader interface {
 	Discard(n int) (int, error)
 }
 
+// Decoder parses a Binary Erlang Term stream into abstract representative Go Terms.
 type Decoder struct {
 	buf reader
 
 	BERT2 bool
 }
 
+// NewDecoder creates an BERT data decoder
 func NewDecoder(r io.Reader) *Decoder {
 	if br, ok := r.(reader); ok {
 		return &Decoder{buf: br}
@@ -30,6 +32,8 @@ func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{buf: bufio.NewReader(r)}
 }
 
+// Decode reads the stream and extracts the next Erlang data term.
+// Returns an error if structural markers or version headers fail validation.
 func (d *Decoder) Decode() (Term, error) {
 	if d.BERT2 {
 		_, err := binary.ReadUvarint(d.buf)
@@ -116,6 +120,7 @@ func (d *Decoder) parse() (Term, error) {
 
 // -- Fixed-Size Primitives --
 
+// u8 pulls a single raw byte straight from the buffer stream.
 func (d *Decoder) u8() (uint8, error) {
 	i, err := d.buf.ReadByte()
 	if err != nil {
@@ -124,6 +129,7 @@ func (d *Decoder) u8() (uint8, error) {
 	return i, nil
 }
 
+// u16 parses a big-endian 16-bit unsigned integer.
 func (d *Decoder) u16() (uint16, error) {
 	b, err := d.buf.Peek(2)
 	if err != nil {
@@ -134,6 +140,7 @@ func (d *Decoder) u16() (uint16, error) {
 	return i, nil
 }
 
+// u32 parses a big-endian 32-bit unsigned integer.
 func (d *Decoder) u32() (uint32, error) {
 	b, err := d.buf.Peek(4)
 	if err != nil {
@@ -144,11 +151,13 @@ func (d *Decoder) u32() (uint32, error) {
 	return i, nil
 }
 
+// i32 parses a big-endian signed 32-bit integer.
 func (d *Decoder) i32() (int32, error) {
 	val, err := d.u32()
 	return int32(val), err
 }
 
+// f64 parses an IEEE 754 double-precision float.
 func (d *Decoder) f64() (float64, error) {
 	b, err := d.buf.Peek(8)
 	if err != nil {
@@ -161,6 +170,7 @@ func (d *Decoder) f64() (float64, error) {
 
 // --- Struct & Collection Parsers ---
 
+// float reads obsolete legacy Erlang string floats, which are 31-byte text blocks.
 func (d *Decoder) float() (Float, error) {
 	// Erlang FloatExt is exactly 31 bytes, null-padded.
 	var buf [31]byte
@@ -181,6 +191,7 @@ func (d *Decoder) float() (Float, error) {
 	return Float(f), nil
 }
 
+// tuple deserializes sequential structures matching a strict, expected layout dimension.
 func (d *Decoder) tuple(arity uint32) (Tuple, error) {
 	// guard against un-allocated memory explosions
 	if arity > 1024 {
@@ -198,6 +209,7 @@ func (d *Decoder) tuple(arity uint32) (Tuple, error) {
 	return t, nil
 }
 
+// _map decodes Erlang map key/value sequence pairings sequentially into flat array slices.
 func (d *Decoder) _map() (Map, error) {
 	arity, err := d.u32()
 	if err != nil {
@@ -217,6 +229,8 @@ func (d *Decoder) _map() (Map, error) {
 	return m, nil
 }
 
+// list handles nested list data and drops the trailing structural Nil element
+// if it describes a proper, standard list layout.
 func (d *Decoder) list() (List, error) {
 	length, err := d.u32()
 	if err != nil {
@@ -246,6 +260,7 @@ func (d *Decoder) list() (List, error) {
 	return list, nil
 }
 
+// string decodes an Erlang list of small byte sequences representation.
 func (d *Decoder) string() (String, error) {
 	length, err := d.u16()
 	if err != nil {
@@ -261,6 +276,7 @@ func (d *Decoder) string() (String, error) {
 	return String(s), nil
 }
 
+// binary pulls an arbitrary raw byte chunk.
 func (d *Decoder) binary() (Binary, error) {
 	length, err := d.u32()
 	if err != nil {
@@ -280,6 +296,7 @@ func (d *Decoder) binary() (Binary, error) {
 	return Binary(b), nil
 }
 
+// atom parses string token identifiers.
 func (d *Decoder) atom() (Atom, error) {
 	length, err := d.u16()
 	if err != nil {

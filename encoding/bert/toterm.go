@@ -13,17 +13,17 @@ import (
 
 var ErrNotImplemented = errors.New("bert: not implemented")
 
-func Marshal(v any) (Term, error) {
-	return marshal(reflect.Indirect(reflect.ValueOf(v)))
+func ToTerm(v any) (Term, error) {
+	return toTerm(reflect.ValueOf(v))
 }
 
-func marshal(v reflect.Value) (Term, error) {
+func toTerm(v reflect.Value) (Term, error) {
 	switch k := v.Kind(); k {
 	case reflect.Pointer, reflect.Interface:
 		if v.IsNil() {
 			return Tuple{Atom("bert"), Atom("nil")}, nil
 		}
-		return marshal(v.Elem())
+		return toTerm(v.Elem())
 
 	case reflect.Bool:
 		return Atom(strconv.FormatBool(v.Bool())), nil
@@ -97,7 +97,7 @@ func marshal(v reflect.Value) (Term, error) {
 		l := make(List, 0, length+1) // v.len + nil
 
 		for i := range length {
-			x, err := marshal(v.Index(i))
+			x, err := toTerm(v.Index(i))
 			if err != nil {
 				return nil, err
 			}
@@ -121,7 +121,7 @@ func marshal(v reflect.Value) (Term, error) {
 		return append(l, Nil{}), nil
 
 	case reflect.Struct:
-		return marshalStruct(v, false)
+		return structToTerm(v, false)
 
 	default:
 		return nil, fmt.Errorf("bert: unsupported type: %s", k.String())
@@ -161,7 +161,7 @@ func parseTag(field reflect.StructField) (name string, flag flags) {
 	return cmp.Or(tag, field.Name), flag
 }
 
-func marshalStruct(v reflect.Value, list bool) (Term, error) {
+func structToTerm(v reflect.Value, list bool) (Term, error) {
 	termNum := v.NumField()
 	if list {
 		termNum += 1 // NumField + nil
@@ -195,7 +195,7 @@ func marshalStruct(v reflect.Value, list bool) (Term, error) {
 			if v.Kind() == reflect.Interface {
 				v = v.Elem()
 			}
-			val, err = marshalStruct(v, true)
+			val, err = structToTerm(v, true)
 
 		case flag.atom:
 			if v.Kind() != reflect.String {
@@ -210,10 +210,10 @@ func marshalStruct(v reflect.Value, list bool) (Term, error) {
 			val = Binary(v.String())
 
 		default:
-			val, err = marshal(v)
+			val, err = toTerm(v)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("bert: marshalStruct: %w", err)
+			return nil, fmt.Errorf("bert: structToTerm: %w", err)
 		}
 
 		tuple = append(tuple, val)

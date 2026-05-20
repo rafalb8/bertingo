@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unsafe"
 )
 
 var ErrNotImplemented = errors.New("bert: not implemented")
@@ -91,9 +92,9 @@ func marshal(v reflect.Value) (Term, error) {
 			return Nil{}, nil
 		}
 
-		l := List{}
 		optimize := true
-		sb := strings.Builder{}
+		l := make(List, 0, v.Len()+1) // v.len + nil
+
 		for i := range v.Len() {
 			x, err := marshal(v.Index(i))
 			if err != nil {
@@ -101,18 +102,21 @@ func marshal(v reflect.Value) (Term, error) {
 			}
 			l = append(l, x)
 
-			if x, isByte := x.(SmallInteger); isByte && optimize {
-				sb.WriteByte(byte(x))
-			} else {
-				optimize = false
+			// check if x's are SmallIntgers => can be optimized into string
+			if optimize {
+				_, optimize = x.(SmallInteger)
 			}
 		}
 
+		// if only SmallIntegers, flatten it to a String
 		if optimize {
-			return String(sb.String()), nil
+			buf := make([]byte, len(l))
+			for i, x := range l {
+				buf[i] = byte(x.(SmallInteger))
+			}
+			return String(unsafe.String(unsafe.SliceData(buf), len(buf))), nil
 		}
 
-		// return proper list
 		return append(l, Nil{}), nil
 
 	case reflect.Struct:

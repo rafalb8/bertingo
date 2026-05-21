@@ -1,4 +1,4 @@
-# bertingo
+# BERTinGo
 
 Go library for encoding data into the BERT (Binary Erlang Term) format.
 It allows your Go applications to speak directly to Erlang and Elixir nodes.
@@ -38,7 +38,7 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf("Encoded %d bytes safely!\n", len(packet))
+	fmt.Printf("Encoded %d bytes!\n", len(packet))
 }
 ```
 
@@ -48,11 +48,12 @@ package main
 
 import (
 	"os"
+
 	bert "github.com/rafalb8/bertingo"
 )
 
 type User struct {
-	Name string `bert:"name,atom"`  // Encodes as an Erlang Atom symbol
+	Name string `bert:"name,atom"`   // Encodes as an Erlang Atom symbol
 	Role string `bert:"role,binary"` // Encodes as a raw Erlang Binary block
 	Age  int    `bert:"age"`
 }

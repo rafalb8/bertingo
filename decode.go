@@ -285,10 +285,6 @@ func (d *Decoder) binary() (Binary, error) {
 		return nil, err
 	}
 
-	if length > 50<<20 { // 50MB safety limit
-		return nil, fmt.Errorf("bert: binary payload size %d exceeds max allowed safety limit", length)
-	}
-
 	b := make([]byte, length)
 	_, err = io.ReadFull(d.buf, b)
 	if err != nil {

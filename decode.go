@@ -10,6 +10,8 @@ import (
 	"strconv"
 )
 
+var ErrVersion = errors.New("bert: invalid version")
+
 type reader interface {
 	io.Reader
 	io.ByteReader
@@ -38,7 +40,7 @@ func (d *Decoder) Decode() (Term, error) {
 	if d.BERT2 {
 		_, err := binary.ReadUvarint(d.buf)
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if err == io.EOF {
 				return nil, err
 			}
 			return nil, fmt.Errorf("bert: decode BERT2: %w", err)
@@ -47,14 +49,14 @@ func (d *Decoder) Decode() (Term, error) {
 
 	magic, err := d.buf.ReadByte()
 	if err != nil {
-		if errors.Is(err, io.EOF) {
+		if err == io.EOF {
 			return nil, err
 		}
 		return nil, fmt.Errorf("bert: decode magic: %w", err)
 	}
 
 	if magic != byte(Version) {
-		return nil, errors.New("bert: invalid version")
+		return nil, ErrVersion
 	}
 
 	return d.parse()

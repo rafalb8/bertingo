@@ -88,6 +88,40 @@ func main() {
 }
 ```
 
+### 3. Decoding to Terms
+```go
+package main
+
+import (
+	"bytes"
+	"fmt"
+
+	bert "github.com/rafalb8/bertingo"
+)
+
+func main() {
+	// Example BERT file
+	buf := bytes.NewBuffer([]byte{
+		131, 104, 3, 100, 0, 3, 98, 111,
+		98, 109, 0, 0, 0, 5, 97, 100,
+		109, 105, 110, 97, 25,
+	})
+
+	term, err := bert.NewDecoder(buf).Decode()
+	if err != nil {
+		panic(err)
+	}
+
+	// Outputs:
+	// 	Tuple: {
+	//   Atom: bob
+	//   Binary: <<"admin">>
+	//   SmallInteger: 25
+	// 	}
+	fmt.Println(bert.Tree(term))
+}
+```
+
 ## How Types Map Together
 | Go Type | Erlang Type | Notes |
 | --- | --- | --- |

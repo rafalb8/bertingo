@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/bits"
+	"slices"
 	"strconv"
 )
 
@@ -183,25 +185,47 @@ type SmallBigInt struct {
 }
 
 func (b SmallBigInt) Append(dst []byte) []byte {
-	bytes := b.Int.Bytes()
-	n := len(bytes)
+	sign := b.Int.Sign()
+	if sign == 0 {
+		return append(dst, byte(SmallBigExt), 0, 0)
+	}
 
+	// calculate bytes required (round up)
+	n := (b.Int.BitLen() + 7) / 8
 	if n > math.MaxUint8 {
 		return dst
 	}
 
-	var sign byte = 0
-	if b.Int.Sign() < 0 {
-		sign = 1
+	// sign byte (1 - negative)
+	var s byte = 0
+	if sign < 0 {
+		s = 1
 	}
 
-	dst = append(dst, byte(SmallBigExt), byte(n), sign)
+	words := b.Int.Bits()
 
-	// append bytes in little-endian order
-	for i := n - 1; i >= 0; i-- {
-		dst = append(dst, bytes[i])
+	// grow slice to fit all the data
+	// tag(1) + n(1) + s(1) + data
+	dst = slices.Grow(dst, 3+len(words)*(bits.UintSize/8))
+	dst = append(dst, byte(SmallBigExt), byte(n), s)
+
+	// calculate where data should end
+	end := len(dst) + n
+
+	// append payload chunks in Little-Endian order
+	switch bits.UintSize {
+	case 64:
+		for _, w := range words {
+			dst = binary.LittleEndian.AppendUint64(dst, uint64(w))
+		}
+	case 32:
+		for _, w := range words {
+			dst = binary.LittleEndian.AppendUint32(dst, uint32(w))
+		}
 	}
-	return dst
+
+	// trim trailing whole-word padding bytes
+	return dst[:end]
 }
 
 func (b SmallBigInt) String() string {
@@ -214,27 +238,50 @@ type LargeBigInt struct {
 }
 
 func (b LargeBigInt) Append(dst []byte) []byte {
-	bytes := b.Int.Bytes()
-	n := len(bytes)
+	sign := b.Int.Sign()
+	if sign == 0 {
+		return append(dst, byte(LargeBigExt), 0, 0, 0, 0, 0)
+	}
 
+	// calculate bytes required (round up)
+	n := (b.Int.BitLen() + 7) / 8
 	if n > math.MaxUint32 {
 		return dst
 	}
 
-	var sign byte = 0
-	if b.Int.Sign() < 0 {
-		sign = 1
+	// sign byte (1 - negative)
+	var s byte = 0
+	if sign < 0 {
+		s = 1
 	}
+
+	words := b.Int.Bits()
+
+	// grow slice to fit all the data
+	// tag(1) + n(4) + s(1) + data
+	dst = slices.Grow(dst, 6+len(words)*(bits.UintSize/8))
 
 	dst = append(dst, byte(LargeBigExt))
 	dst = binary.BigEndian.AppendUint32(dst, uint32(n))
-	dst = append(dst, sign)
+	dst = append(dst, s)
 
-	// append bytes in little-endian order
-	for i := n - 1; i >= 0; i-- {
-		dst = append(dst, bytes[i])
+	// calculate where data should end
+	end := len(dst) + n
+
+	// append payload chunks in Little-Endian order
+	switch bits.UintSize {
+	case 64:
+		for _, w := range words {
+			dst = binary.LittleEndian.AppendUint64(dst, uint64(w))
+		}
+	case 32:
+		for _, w := range words {
+			dst = binary.LittleEndian.AppendUint32(dst, uint32(w))
+		}
 	}
-	return dst
+
+	// trim trailing whole-word padding bytes
+	return dst[:end]
 }
 
 func (b LargeBigInt) String() string {

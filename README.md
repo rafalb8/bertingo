@@ -21,24 +21,25 @@ If you just need a raw `[]byte` slice to send over a network socket or write to 
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
+
 	bert "github.com/rafalb8/bertingo"
 )
 
 func main() {
-	// A simple map of data
-	data := map[string]any{
+	m := map[string]any{
 		"name": "Alice",
 		"age":  30,
 	}
 
 	// Turn it into BERT binary format
-	packet, err := bert.Marshal(data)
+	data, err := bert.Marshal(m)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("Encoded %d bytes!\n", len(packet))
+	fmt.Println(hex.Dump(data))
 }
 ```
 
@@ -47,7 +48,9 @@ func main() {
 package main
 
 import (
-	"os"
+	"bytes"
+	"encoding/hex"
+	"fmt"
 
 	bert "github.com/rafalb8/bertingo"
 )
@@ -60,7 +63,8 @@ type User struct {
 
 func main() {
 	// Prepare our stream destination (like a network connection or file)
-	encoder := bert.NewEncoder(os.Stdout)
+	buf := bytes.Buffer{}
+	encoder := bert.NewEncoder(&buf)
 
 	user := User{
 		Name: "bob",
@@ -75,9 +79,12 @@ func main() {
 	}
 
 	// Serialize straight to the output stream
-	if err := encoder.Encode(term); err != nil {
+	err = encoder.Encode(term)
+	if err != nil {
 		panic(err)
 	}
+
+	fmt.Println(hex.Dump(buf.Bytes()))
 }
 ```
 

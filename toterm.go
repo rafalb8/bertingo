@@ -123,6 +123,23 @@ func toTerm(v reflect.Value) (Term, error) {
 
 		return l, nil
 
+	case reflect.Map:
+		m := make(Map, 0, v.Len()*2)
+		it := v.MapRange()
+		for it.Next() {
+			k, err := toTerm(it.Key())
+			if err != nil {
+				return nil, fmt.Errorf("bert: map key: %w", err)
+			}
+
+			v, err := toTerm(it.Value())
+			if err != nil {
+				return nil, fmt.Errorf("bert: map value: %w", err)
+			}
+			m = append(m, k, v)
+		}
+		return m, nil
+
 	case reflect.Struct:
 		return structToTerm(v, false)
 

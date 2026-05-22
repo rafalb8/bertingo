@@ -76,6 +76,13 @@ func Tree(b Term, prefix ...byte) string {
 		}
 		sb.WriteString(pfx + "}\n")
 
+	case Map:
+		sb.WriteString(pfx + "Map: {\n")
+		for _, v := range b {
+			sb.WriteString(Tree(v, []byte(pfx+"  ")...))
+		}
+		sb.WriteString(pfx + "}\n")
+
 	case Binary:
 		sb.WriteString(pfx + "Binary: <<" + b.String() + ">>\n")
 

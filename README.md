@@ -91,13 +91,16 @@ func main() {
 ## How Types Map Together
 | Go Type | Erlang Type | Notes |
 | --- | --- | --- |
-| `bool` | `Atom` | Encodes as `true` or `false` tokens |
-| `string` | `String` | Lists of characters |
-| `int32` | `Integer` | Signed 32-bit values |
-| `uint8` | `SmallInteger` | Fast 8-bit values (0-255) |
-| `float64` | `NewFloat` | 8-byte IEEE 754 precision |
-| `[]byte` | `Binary` | Raw data chunks |
-| `struct` | `Tuple` | Key-value pairs matching your fields |
+| bool | Atom | Encodes as true or false tokens |
+| []byte | Binary | Raw data chunks |
+| string | String | Lists of characters |
+| uint8 | SmallInteger | Fast 8-bit values (0-255) |
+| uint16/int8/int16/int32 | Integer | Signed 32-bit values |
+| uint32/uint64/int64 | SmallBigInt | Large precision integers that fit into small bignum tags |
+| uint/int | SmallInteger/Integer/SmallBigInt | Dynamic mapping based on the host architecture size and runtime value |
+| float32/float64 | NewFloat | 8-byte IEEE 754 precision |
+| map | Map | Native associative arrays with key-value pairs |
+| struct | Tuple | Key-value pairs matching your fields (or tagged tuples for records) |
 
 ## Struct Tags Reference
 Use the `bert:"..."` key to change how fields behave:

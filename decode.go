@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"strconv"
 )
 
@@ -107,6 +108,12 @@ func (d *Decoder) parse() (Term, error) {
 
 	case BinaryExt:
 		return d.binary()
+
+	case SmallBigExt:
+		return d.smallBig()
+
+	case LargeBigExt:
+		return d.largeBig()
 
 	case NewFloatExt:
 		f, err := d.f64()
@@ -292,6 +299,68 @@ func (d *Decoder) binary() (Binary, error) {
 	}
 
 	return Binary(b), nil
+}
+
+// smallBig decodes a small arbitrary-precision integer (SMALL_BIG_EXT).
+func (d *Decoder) smallBig() (SmallBigInt, error) {
+	b := SmallBigInt{}
+
+	n, err := d.u8()
+	if err != nil {
+		return b, fmt.Errorf("bert: smallBig length: %w", err)
+	}
+
+	sign, err := d.u8()
+	if err != nil {
+		return b, fmt.Errorf("bert: smallBig sign: %w", err)
+	}
+
+	// read the little-endian absolute value digits
+	buf := make([]byte, n)
+	_, err = io.ReadFull(d.buf, buf)
+	if err != nil {
+		return b, fmt.Errorf("bert: smallBig read: %w", err)
+	}
+
+	// math/big expects big-endian bytes
+	slices.Reverse(buf)
+
+	b.Int.SetBytes(buf)
+	if sign == 1 {
+		b.Int.Neg(&b.Int)
+	}
+	return b, nil
+}
+
+// largeBig decodes a large arbitrary-precision integer (LARGE_BIG_EXT).
+func (d *Decoder) largeBig() (LargeBigInt, error) {
+	b := LargeBigInt{}
+
+	n, err := d.u32()
+	if err != nil {
+		return b, fmt.Errorf("bert: largeBig length: %w", err)
+	}
+
+	sign, err := d.u8()
+	if err != nil {
+		return b, fmt.Errorf("bert: largeBig sign: %w", err)
+	}
+
+	// read the little-endian absolute value digits
+	buf := make([]byte, n)
+	_, err = io.ReadFull(d.buf, buf)
+	if err != nil {
+		return b, fmt.Errorf("bert: largeBig read: %w", err)
+	}
+
+	// math/big expects big-endian bytes
+	slices.Reverse(buf)
+
+	b.Int.SetBytes(buf)
+	if sign == 1 {
+		b.Int.Neg(&b.Int)
+	}
+	return b, nil
 }
 
 // atom parses string token identifiers.

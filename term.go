@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"math/big"
 	"strconv"
 )
 
@@ -174,6 +175,70 @@ func (b Binary) Append(dst []byte) []byte {
 
 func (b Binary) String() string {
 	return strconv.QuoteToASCII(string(b))
+}
+
+// SmallBigInt represents an Erlang (SMALL_BIG_EXT).
+type SmallBigInt struct {
+	Int big.Int
+}
+
+func (b SmallBigInt) Append(dst []byte) []byte {
+	bytes := b.Int.Bytes()
+	n := len(bytes)
+
+	if n > math.MaxUint8 {
+		return dst
+	}
+
+	var sign byte = 0
+	if b.Int.Sign() < 0 {
+		sign = 1
+	}
+
+	dst = append(dst, byte(SmallBigExt), byte(n), sign)
+
+	// append bytes in little-endian order
+	for i := n - 1; i >= 0; i-- {
+		dst = append(dst, bytes[i])
+	}
+	return dst
+}
+
+func (b SmallBigInt) String() string {
+	return b.Int.String()
+}
+
+// LargeBigInt represents an Erlang (LARGE_BIG_EXT).
+type LargeBigInt struct {
+	Int big.Int
+}
+
+func (b LargeBigInt) Append(dst []byte) []byte {
+	bytes := b.Int.Bytes()
+	n := len(bytes)
+
+	if n > math.MaxUint32 {
+		return dst
+	}
+
+	var sign byte = 0
+	if b.Int.Sign() < 0 {
+		sign = 1
+	}
+
+	dst = append(dst, byte(LargeBigExt))
+	dst = binary.BigEndian.AppendUint32(dst, uint32(n))
+	dst = append(dst, sign)
+
+	// append bytes in little-endian order
+	for i := n - 1; i >= 0; i-- {
+		dst = append(dst, bytes[i])
+	}
+	return dst
+}
+
+func (b LargeBigInt) String() string {
+	return b.Int.String()
 }
 
 // NewFloat represents a modern 8-byte double precision floating point number (IEEE 754).

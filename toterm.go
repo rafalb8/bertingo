@@ -2,7 +2,6 @@ package bert
 
 import (
 	"cmp"
-	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -10,9 +9,6 @@ import (
 	"strings"
 	"unsafe"
 )
-
-// ErrNotImplemented is returned when trying to convert a type that is not yet supported.
-var ErrNotImplemented = errors.New("bert: not implemented")
 
 // ToTerm converts any Go value into an Erlang data Term object.
 func ToTerm(v any) (Term, error) {
@@ -35,14 +31,15 @@ func toTerm(v reflect.Value) (Term, error) {
 		return String(v.String()), nil
 
 	case reflect.Uint:
-		switch i := v.Uint(); {
-		case i <= math.MaxUint8:
-			return SmallInteger(i), nil
-		case i <= math.MaxInt32:
-			return Integer(i), nil
+		switch x := v.Uint(); {
+		case x <= math.MaxUint8:
+			return SmallInteger(x), nil
+		case x <= math.MaxInt32:
+			return Integer(x), nil
 		default:
-			// TODO: BigInt handling
-			return nil, ErrNotImplemented
+			b := SmallBigInt{}
+			b.Int.SetUint64(x)
+			return b, nil
 		}
 
 	case reflect.Uint8:
@@ -52,26 +49,29 @@ func toTerm(v reflect.Value) (Term, error) {
 		return Integer(v.Uint()), nil
 
 	case reflect.Uint32, reflect.Uint64:
-		// TODO: BigInt handling
-		return nil, ErrNotImplemented
+		b := SmallBigInt{}
+		b.Int.SetUint64(v.Uint())
+		return b, nil
 
 	case reflect.Int:
-		switch i := v.Int(); {
-		case i >= 0 && i <= math.MaxUint8:
-			return SmallInteger(i), nil
-		case i >= math.MinInt32 && i <= math.MaxInt32:
-			return Integer(i), nil
+		switch x := v.Int(); {
+		case x >= 0 && x <= math.MaxUint8:
+			return SmallInteger(x), nil
+		case x >= math.MinInt32 && x <= math.MaxInt32:
+			return Integer(x), nil
 		default:
-			// TODO: BigInt handling
-			return nil, ErrNotImplemented
+			b := SmallBigInt{}
+			b.Int.SetInt64(x)
+			return b, nil
 		}
 
 	case reflect.Int8, reflect.Int16, reflect.Int32:
 		return Integer(v.Int()), nil
 
 	case reflect.Int64:
-		// TODO: BigInt handling
-		return nil, ErrNotImplemented
+		b := SmallBigInt{}
+		b.Int.SetInt64(v.Int())
+		return b, nil
 
 	case reflect.Float32, reflect.Float64:
 		return NewFloat(v.Float()), nil

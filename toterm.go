@@ -159,7 +159,8 @@ func toTerm(v reflect.Value) (Term, error) {
 
 // flags keeps track of custom configuration tags attached to struct fields.
 type flags struct {
-	omitempty bool // Skip if the field has its zero value
+	omitempty bool // Skip if the field has its "empty" value
+	omitzero  bool // Skip if the field has its zero value
 	binary    bool // Force a Go string to encode as a raw Erlang Binary block
 	list      bool // Force a child struct to layout components like an Erlang List array
 	atom      bool // Force a Go string to convert into an Erlang token Atom symbol
@@ -181,6 +182,8 @@ func parseTag(field reflect.StructField) (name string, flag flags) {
 		switch strings.TrimSpace(opt) {
 		case "omitempty":
 			flag.omitempty = true
+		case "omitzero":
+			flag.omitzero = true
 		case "binary":
 			flag.binary = true
 		case "list":
@@ -212,6 +215,22 @@ func structToTerm(v reflect.Value, list bool) (Term, error) {
 
 		if flag.omitempty && v.IsZero() {
 			continue
+		}
+
+		if flag.omitzero {
+			hasIsZero := false
+			if v.CanInterface() {
+				if z, ok := v.Interface().(interface{ IsZero() bool }); ok {
+					hasIsZero = true
+					if z.IsZero() {
+						continue
+					}
+				}
+			}
+
+			if !hasIsZero && v.IsZero() {
+				continue
+			}
 		}
 
 		tuple := make(Tuple, 0, 2)

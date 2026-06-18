@@ -1,7 +1,6 @@
 package bert
 
 import (
-	"cmp"
 	"fmt"
 	"math"
 	"reflect"
@@ -175,7 +174,7 @@ func parseTag(field reflect.StructField) (name string, flag flags) {
 
 	tag, options, found := strings.Cut(tag, ",")
 	if !found {
-		return cmp.Or(tag, field.Name), flag
+		return tag, flag
 	}
 
 	for opt := range strings.SplitSeq(options, ",") {
@@ -190,7 +189,7 @@ func parseTag(field reflect.StructField) (name string, flag flags) {
 			flag.atom = true
 		}
 	}
-	return cmp.Or(tag, field.Name), flag
+	return tag, flag
 }
 
 // structToTerm transforms standard Go structures into nested Erlang key-value fields.

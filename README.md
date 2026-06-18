@@ -5,6 +5,7 @@ It allows your Go applications to speak directly to Erlang and Elixir nodes.
 
 ## Features
 * **Struct Tag Customization**: Easily map Go structs to Erlang Tuples, Lists, Atoms, or Binaries using the `bert` tag.
+* **Custom Serialization**: Implement the `ToTermer` interface on your own types for full control over how they convert to BERT terms.
 * **BERT2 Support**: Includes optional support for BERT2 length-prefixed packet framing.
 
 ## Installation
@@ -13,7 +14,6 @@ go get -u github.com/rafalb8/bertingo
 ```
 
 ## Quick Start
-
 ### 1. Simple Marshalling (To Bytes)
 If you just need a raw `[]byte` slice to send over a network socket or write to a file, use `Marshal`:
 
@@ -34,7 +34,7 @@ func main() {
 	}
 
 	// Turn it into BERT binary format
-	data, err := bert.Marshal(m)
+	data, err := bert.Marshal(m, true) // true - add BERT2 length prefix
 	if err != nil {
 		panic(err)
 	}
@@ -113,18 +113,50 @@ func main() {
 	}
 
 	// Outputs:
-	// 	Tuple: {
+	// Tuple: {
 	//   Atom: bob
 	//   Binary: <<"admin">>
 	//   SmallInteger: 25
-	// 	}
+	// }
 	fmt.Println(bert.Tree(term))
 }
 ```
 
+## Advanced Usage
+### Custom Term Conversion (`ToTermer`)
+You can intercept the conversion pipeline for any custom Go type by implementing the `ToTermer` interface. If a type satisfies this interface, `bert.ToTerm()` will bypass reflection and defer directly to your custom implementation:
+
+```go
+type ToTermer interface {
+    ToTerm() (Term, error)
+}
+```
+
+#### Example:
+```go
+package main
+
+import (
+	bert "github.com/rafalb8/bertingo"
+)
+
+type CustomSecret string
+
+// ToTerm ensures the secret is always obfuscated or tagged safely when encoded
+func (s CustomSecret) ToTerm() (bert.Term, error) {
+	return bert.ToTerm(map[string]string{
+		"status": "encrypted",
+		"data":   "******",
+	})
+}
+```
+
+---
+
 ## How Types Map Together
 | Go Type | Erlang Type | Notes |
 | --- | --- | --- |
+| Type matching `ToTermer` | *Variable* | Uses custom `ToTerm()` output directly |
 | bool | Atom | Encodes as true or false tokens |
 | []byte | Binary | Raw data chunks |
 | string | String | Lists of characters |
@@ -136,11 +168,15 @@ func main() {
 | map | Map | Native associative arrays with key-value pairs |
 | struct | Tuple | Key-value pairs matching your fields (or tagged tuples for records) |
 
+---
+
 ## Struct Tags Reference
 Use the `bert:"..."` key to change how fields behave:
 
+* `bert:""` — Drops the Erlang key entirely.
+* `bert:"-"` — Tells the encoder to always ignore this field.
 * `bert:"name"` — Changes the Erlang key name to "name" instead of the Go struct field name.
 * `bert:"name,atom"` — Forces a string to become an Erlang Atom token.
 * `bert:"name,binary"` — Forces a string to become a raw Erlang Binary object.
 * `bert:"name,omitempty"` — Skips writing this field entirely if it holds its default Go zero value.
-* `bert:"-"` — Tells the encoder to always ignore this field.
+* `bert:"name,omitzero"` — Skips writing this field entirely if it returns `true` for `IsZero() bool` or holds its default Go zero value.

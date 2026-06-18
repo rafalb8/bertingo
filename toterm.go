@@ -10,12 +10,22 @@ import (
 	"unsafe"
 )
 
+type ToTermer interface {
+	ToTerm() (Term, error)
+}
+
 // ToTerm converts any Go value into an Erlang data Term object.
 func ToTerm(v any) (Term, error) {
 	return toTerm(reflect.ValueOf(v))
 }
 
 func toTerm(v reflect.Value) (Term, error) {
+	if v.CanInterface() {
+		if v, ok := v.Interface().(ToTermer); ok {
+			return v.ToTerm()
+		}
+	}
+
 	switch k := v.Kind(); k {
 	case reflect.Pointer, reflect.Interface:
 		if v.IsNil() {

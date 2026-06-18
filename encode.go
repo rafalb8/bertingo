@@ -58,40 +58,56 @@ func (e *Encoder) Encode(term Term) error {
 }
 
 // Tree recursively unrolls Term into a clean, formatted layout string.
-func Tree(b Term, prefix ...byte) string {
-	pfx := string(prefix)
-	sb := strings.Builder{}
+func Tree(b Term) string {
+	var sb strings.Builder
+	buildTree(&sb, b, "")
+	return sb.String()
+}
+
+func buildTree(sb *strings.Builder, b Term, prefix string) {
 	switch b := b.(type) {
 	case Tuple:
-		sb.WriteString(pfx + "Tuple: {\n")
+		sb.WriteString(prefix)
+		sb.WriteString("Tuple: {\n")
 		for _, v := range b {
-			sb.WriteString(Tree(v, []byte(pfx+"  ")...))
+			buildTree(sb, v, prefix+"  ")
 		}
-		sb.WriteString(pfx + "}\n")
+		sb.WriteString(prefix)
+		sb.WriteString("}\n")
 
 	case List:
-		sb.WriteString(pfx + "List: {\n")
+		sb.WriteString(prefix)
+		sb.WriteString("List: {\n")
 		for _, v := range b {
-			sb.WriteString(Tree(v, []byte(pfx+"  ")...))
+			buildTree(sb, v, prefix+"  ")
 		}
-		sb.WriteString(pfx + "}\n")
+		sb.WriteString(prefix)
+		sb.WriteString("}\n")
 
 	case Map:
-		sb.WriteString(pfx + "Map: {\n")
+		sb.WriteString(prefix)
+		sb.WriteString("Map: {\n")
 		for _, v := range b {
-			sb.WriteString(Tree(v, []byte(pfx+"  ")...))
+			buildTree(sb, v, prefix+"  ")
 		}
-		sb.WriteString(pfx + "}\n")
+		sb.WriteString(prefix)
+		sb.WriteString("}\n")
 
 	case Binary:
-		sb.WriteString(pfx + "Binary: <<" + b.String() + ">>\n")
+		sb.WriteString(prefix)
+		sb.WriteString("Binary: <<")
+		sb.WriteString(b.String())
+		sb.WriteString(">>\n")
 
 	case Nil:
-		sb.WriteString(pfx + "Nil\n")
+		sb.WriteString(prefix)
+		sb.WriteString("Nil\n")
 
 	default:
 		typ := strings.TrimLeft(fmt.Sprintf("%T: ", b), "bert.")
-		sb.WriteString(pfx + typ + b.String() + "\n")
+		sb.WriteString(prefix)
+		sb.WriteString(typ)
+		sb.WriteString(b.String())
+		sb.WriteString("\n")
 	}
-	return sb.String()
 }

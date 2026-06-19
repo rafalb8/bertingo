@@ -9,19 +9,19 @@ import (
 	"unsafe"
 )
 
-type ToTermer interface {
-	ToTerm() (Term, error)
+type AsTermer interface {
+	AsTerm() (Term, error)
 }
 
-// ToTerm converts any Go value into an Erlang data Term object.
-func ToTerm(v any) (Term, error) {
+// AsTerm converts any Go value into an Erlang data Term object.
+func AsTerm(v any) (Term, error) {
 	return toTerm(reflect.ValueOf(v))
 }
 
 func toTerm(v reflect.Value) (Term, error) {
 	if v.CanInterface() {
-		if v, ok := v.Interface().(ToTermer); ok {
-			return v.ToTerm()
+		if v, ok := v.Interface().(AsTermer); ok {
+			return v.AsTerm()
 		}
 	}
 

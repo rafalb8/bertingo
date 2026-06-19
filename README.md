@@ -5,7 +5,7 @@ It allows your Go applications to speak directly to Erlang and Elixir nodes.
 
 ## Features
 * **Struct Tag Customization**: Easily map Go structs to Erlang Tuples, Lists, Atoms, or Binaries using the `bert` tag.
-* **Custom Serialization**: Implement the `ToTermer` interface on your own types for full control over how they convert to BERT terms.
+* **Custom Serialization**: Implement the `AsTermer` interface on your own types for full control over how they convert to BERT terms.
 * **BERT2 Support**: Includes optional support for BERT2 length-prefixed packet framing.
 
 ## Installation
@@ -73,7 +73,7 @@ func main() {
 	}
 
 	// Convert Go struct to generic BERT terms
-	term, err := bert.ToTerm(user)
+	term, err := bert.AsTerm(user)
 	if err != nil {
 		panic(err)
 	}
@@ -123,12 +123,12 @@ func main() {
 ```
 
 ## Advanced Usage
-### Custom Term Conversion (`ToTermer`)
-You can intercept the conversion pipeline for any custom Go type by implementing the `ToTermer` interface. If a type satisfies this interface, `bert.ToTerm()` will bypass reflection and defer directly to your custom implementation:
+### Custom Term Conversion (`AsTermer`)
+You can intercept the conversion pipeline for any custom Go type by implementing the `AsTermer` interface. If a type satisfies this interface, `bert.AsTerm()` will bypass reflection and defer directly to your custom implementation:
 
 ```go
-type ToTermer interface {
-    ToTerm() (Term, error)
+type AsTermer interface {
+    AsTerm() (Term, error)
 }
 ```
 
@@ -142,9 +142,9 @@ import (
 
 type CustomSecret string
 
-// ToTerm ensures the secret is always obfuscated or tagged safely when encoded
-func (s CustomSecret) ToTerm() (bert.Term, error) {
-	return bert.ToTerm(map[string]string{
+// AsTerm ensures the secret is always obfuscated or tagged safely when encoded
+func (s CustomSecret) AsTerm() (bert.Term, error) {
+	return bert.AsTerm(map[string]string{
 		"status": "encrypted",
 		"data":   "******",
 	})
@@ -156,7 +156,7 @@ func (s CustomSecret) ToTerm() (bert.Term, error) {
 ## How Types Map Together
 | Go Type | Erlang Type | Notes |
 | --- | --- | --- |
-| Type matching `ToTermer` | *Variable* | Uses custom `ToTerm()` output directly |
+| Type matching `AsTermer` | *Variable* | Uses custom `AsTerm()` output directly |
 | bool | Atom | Encodes as true or false tokens |
 | []byte | Binary | Raw data chunks |
 | string | String | Lists of characters |
@@ -178,5 +178,6 @@ Use the `bert:"..."` key to change how fields behave:
 * `bert:"name"` — Changes the Erlang key name to "name" instead of the Go struct field name.
 * `bert:"name,atom"` — Forces a string to become an Erlang Atom token.
 * `bert:"name,binary"` — Forces a string to become a raw Erlang Binary object.
+* `bert:"name,list"` — Forces a child struct to layout its components like Erlang Lists.
 * `bert:"name,omitempty"` — Skips writing this field entirely if it holds its default Go zero value.
 * `bert:"name,omitzero"` — Skips writing this field entirely if it returns `true` for `IsZero() bool` or holds its default Go zero value.
